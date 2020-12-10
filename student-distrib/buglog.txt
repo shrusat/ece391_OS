@@ -1,0 +1,78 @@
+bug log
+
+Checkpoint 1:
+1) error: boot looping, cause: we didn't comment out the test launch stuff that included the idt, error difficulty: not that difficult
+
+2) error: page disabled whenever trying to test paging code, cause: didn't call the initialize paging function in kernel.c, error difficulty: not that difficult and easy fix 
+
+3) error: info mem showing more than two entries, cause: instead of modifying page table, i was modifying page directory instead of page table, error difficulty: difficult to debug, but was an easy fix 
+
+4) error: idt cutting out error message, cause: lib.h functions wasn't implemented properly, error difficulty: not that hard, just need to edit our print statements
+
+5) error: idt and paging conflicts, basically instead of printing out the error, it will just have it be a bootloop,, which is wrong, cause: page table wasn't initialized correctly, error difficulty: had to gdb through it to figure out whats going on, so a bit time consuming
+
+6) error: keyboard only printing one character, cause: interrupt not returning correctly
+
+7) error: rtc giving exceptions, cause: didn't initialize for register a
+
+Demo: No errors
+
+Checkpoint 2:
+1) error: buffer prints buffer multiple times in the terminal, cause: printing in a infinite loop
+
+2) error: infinite printing buf, cause: did not start screen_x and screen_y at 0
+
+3) error: weird characters printing, cause: not initializing buf
+
+4) Prints other information on screen in addition to the rtc output. Tried to clear before outputting in rtc handler, but that deleted all previous values every time the rtc outputted. Fixed this error by clearing before initializing the rtc.
+
+5) Rtc output did not wrap to the next line once it hit the end of the screen. Fixed error by modifying the putc function to add a conditional statement checking screen location.
+
+6) Rtc output did not start at the beginning of the screen and instead printed towards the bottom of the screen. Added a global flag variable in rtc.c to display the first element of the output at 0,0 and continue printing the next variables consecutively.
+
+7) error: page fault when doing read_data ,, how to fix: basically re did read_data and also used memcpy and that made it to stop page faulting
+
+8) error: nothing being printed for executables ,, how to fix: used the original putc they gave us and not the one that we needed to change for terminal and rtc
+
+Demo: Read terminal, clear with control l, reading executables, and long file (-4)
+
+Checkpoint 3:
+
+1) error: Page Fault during execute, cause: esp starting address was wrong and we did not calculate eip so it was little endian
+
+2) error: General Protection Exceptions after the write function, cause: our interrupt handler was messing up the registers in the system_call asm and causing the exception
+
+3) error: Page Fault after ls is called, cause: we did not finish the halt function
+
+4) We were initializing the PCB correctly and opening files correctly. However, when we printed out the contents of the pcb, only fd = 2 was filled. We were initializing a different pcb's file array instead of pcb[0].file_array
+
+5) When calling ls, the directory would be read but would be stuck in terminal_read afterwards instead of file_read. This is because the fd being passed into read() was 0, which jumped to stdin. We fixed this by returning the correct fd in open() which correctly jumped to file_read() instead of terminal_read()
+
+6) file_read() was not working because the wrong inode number was being passed into the read_data function. We created a pcb entry to correctly access the inode number from its corresponding index in file_array.
+
+Demo: Halt, putc is backspacing the 391OS>, file read
+
+Checkpoint 4:
+
+1) Execute and halt would work once, but would page fault on running execute again. We weren't incrementing our pid correctly because it would go from pid = 0 to pid = 2 after one call. To fix this, we set pid = program_count at the beginning of each execute call.
+
+2) ls would work once, but would not print anything if you tried it again. This is because we used a global d_index to read all of the files, but did not reset it to 0 after an ls call is finished. We fixed this by resetting d_index in read_dentry_by_index() if it is equal to the number of dentries.
+
+3) argmax correctly filled the buffer but would get stuck in the read/write loop when running cat. This occurred because we were not returning 0 in read when we reached the end of a file, and were not updating file_position after a read. We fixed this by incrementing file_position after every file_read, and checking if file_position was at the end of the file before every read.
+
+4) Fish would show up for a second and disappear. We also noticed that reading larger files (more than 1024 bytes, ie: cat syserr) would only print the first 1024 bytes and not print anything afterwards. This was an issue with terminal_read, where we were checking if the buf[0] was NULL. We got rid of this if statement because our buffer was filled and buf[0] just happened to be NULL. This also fixed fish since it reads more than 1024 bytes.
+
+Demo: Grep with no arg not working
+
+Checkpoint 5:
+
+1) error: Video memory giving a page fault, cause: the video mem and video buffers were not continuous (B8, B9, C0, C1 -> correct: B8, B9, BA, BB)
+
+2) After adding the parent pid tracking for multiple terminals, the first terminal would execute but page fault at the end of halt, the second terminal would boot loop at the end of halt, and the third would work fine. This occurred because we automatically initialized the three terminals within execute before we reached the assembly code. Only the third terminal was able to reach the assembly, so we lost access to the first and second when backtracking from halt. 
+To fix this, we added a condition in terminal_switch that checked if the terminal was already opened in a pcb. If it wasn't we would call execute on it.
+
+3) Multiple shells called a page fault. When setting a new pid in execute, we were not correctly checking whether a pcb was empty, so we added a new "occupied" flag to the pcb struct to check whether it is currently in use.
+
+4) error: Scheduling starting and closing window, cause: video address was not mapped correctly
+
+5) error: Scheduling bootlooping, cause: kernel was not initialized in the correct order
